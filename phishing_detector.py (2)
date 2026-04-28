@@ -7,6 +7,7 @@ from sklearn.metrics import accuracy_score
 
 app = Flask(__name__)
 
+# Sample dataset
 emails = [
     "Your account will be suspended, click here to verify",
     "Meeting scheduled tomorrow at 10 AM",
@@ -26,25 +27,39 @@ emails = [
     "Submit your report before deadline"
 ]
 
+# Labels: 1 = phishing, 0 = safe
 labels = [1,0,1,0,1,1,1,0,1,0,1,0,1,0,1,0]
 
+# Vectorization
 vectorizer = TfidfVectorizer(stop_words='english', ngram_range=(1,2))
 X = vectorizer.fit_transform(emails)
 
-X_train, X_test, y_train, y_test = train_test_split(X, labels, test_size=0.3)
+# Train-test split (fixed random_state for consistency)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, labels, test_size=0.3, random_state=42
+)
 
+# Models
 lr_model = LogisticRegression(max_iter=1000)
 nb_model = MultinomialNB()
 
+# Training
 lr_model.fit(X_train, y_train)
 nb_model.fit(X_train, y_train)
 
+# Evaluation
 lr_acc = accuracy_score(y_test, lr_model.predict(X_test))
 nb_acc = accuracy_score(y_test, nb_model.predict(X_test))
 
-model = lr_model if lr_acc > nb_acc else nb_model
-best_model_name = "Logistic Regression" if model == lr_model else "Naive Bayes"
-best_accuracy = max(lr_acc, nb_acc)
+# Select best model
+if lr_acc > nb_acc:
+    model = lr_model
+    best_model_name = "Logistic Regression"
+    best_accuracy = lr_acc
+else:
+    model = nb_model
+    best_model_name = "Naive Bayes"
+    best_accuracy = nb_acc
 
 @app.route("/", methods=["GET", "POST"])
 def home():
@@ -55,12 +70,12 @@ def home():
         email_text = request.form["email"]
 
         X_input = vectorizer.transform([email_text])
-        prediction = model.predict(X_input)
-        prob = model.predict_proba(X_input)[0][prediction[0]]
+        prediction = model.predict(X_input)[0]
+        prob = model.predict_proba(X_input)[0][prediction]
 
-        confidence = f"{prob*100:.2f}%"
+        confidence = f"{prob * 100:.2f}%"
 
-        if prediction[0] == 1:
+        if prediction == 1:
             result = "🚨 Phishing Email Detected!"
         else:
             result = "✅ Safe Email"
@@ -70,8 +85,10 @@ def home():
         result=result,
         confidence=confidence,
         model_name=best_model_name,
-        accuracy=f"{best_accuracy*100:.2f}%"
+        accuracy=f"{best_accuracy * 100:.2f}%"
     )
 
 if __name__ == "__main__":
     app.run(debug=True)
+
+        
