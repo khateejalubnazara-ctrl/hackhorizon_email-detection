@@ -1,32 +1,77 @@
-import pandas as pd
+from flask import Flask, request, render_template
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
 
-# Sample dataset (phishing vs. safe emails)
+app = Flask(__name__)
+
 emails = [
-    "Your account will be suspended, click here to verify.",
-    "Meeting scheduled tomorrow at 10 AM.",
-    "Update your payment details immediately to avoid service interruption.",
-    "Lunch with team at 1 PM."
+    "Your account will be suspended, click here to verify",
+    "Meeting scheduled tomorrow at 10 AM",
+    "Update your payment details immediately",
+    "Lunch with team at 1 PM",
+    "Urgent! Your bank account is blocked",
+    "Click here to claim your reward",
+    "Verify your password immediately",
+    "Project discussion at 3 PM",
+    "Congratulations! You won a prize",
+    "Reminder: submit assignment today",
+    "Reset your password now to avoid lock",
+    "Team outing planned this weekend",
+    "Security alert: unusual login attempt detected",
+    "Invoice attached for your reference",
+    "You have won lottery, claim now",
+    "Submit your report before deadline"
 ]
 
-labels = [1, 0, 1, 0]  # 1 = phishing, 0 = safe
+labels = [1,0,1,0,1,1,1,0,1,0,1,0,1,0,1,0]
 
-# Convert text to features
-vectorizer = TfidfVectorizer()
+vectorizer = TfidfVectorizer(stop_words='english', ngram_range=(1,2))
 X = vectorizer.fit_transform(emails)
 
-# Train classifier
-model = LogisticRegression()
-model.fit(X, labels)
+X_train, X_test, y_train, y_test = train_test_split(X, labels, test_size=0.3)
 
-# Test new email
-test_email = ["Please confirm your password to continue."]
-X_test = vectorizer.transform(test_email)
+lr_model = LogisticRegression(max_iter=1000)
+nb_model = MultinomialNB()
 
-prediction = model.predict(X_test)
+lr_model.fit(X_train, y_train)
+nb_model.fit(X_train, y_train)
 
-if prediction[0] == 1:
-    print("🚨 Phishing Alert: Suspicious email detected!")
-else:
-    print("✅ Safe email.")
+lr_acc = accuracy_score(y_test, lr_model.predict(X_test))
+nb_acc = accuracy_score(y_test, nb_model.predict(X_test))
+
+model = lr_model if lr_acc > nb_acc else nb_model
+best_model_name = "Logistic Regression" if model == lr_model else "Naive Bayes"
+best_accuracy = max(lr_acc, nb_acc)
+
+@app.route("/", methods=["GET", "POST"])
+def home():
+    result = ""
+    confidence = ""
+
+    if request.method == "POST":
+        email_text = request.form["email"]
+
+        X_input = vectorizer.transform([email_text])
+        prediction = model.predict(X_input)
+        prob = model.predict_proba(X_input)[0][prediction[0]]
+
+        confidence = f"{prob*100:.2f}%"
+
+        if prediction[0] == 1:
+            result = "🚨 Phishing Email Detected!"
+        else:
+            result = "✅ Safe Email"
+
+    return render_template(
+        "index.html",
+        result=result,
+        confidence=confidence,
+        model_name=best_model_name,
+        accuracy=f"{best_accuracy*100:.2f}%"
+    )
+
+if __name__ == "__main__":
+    app.run(debug=True)
