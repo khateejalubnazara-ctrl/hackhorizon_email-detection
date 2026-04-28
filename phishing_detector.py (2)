@@ -1,0 +1,30 @@
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+
+Sample dataset (phishing vs. safe emails)
+emails = [
+    "Your account will be suspended, click here to verify.",
+    "Meeting scheduled tomorrow at 10 AM.",
+    "Update your payment details immediately to avoid service interruption.",
+    "Lunch with team at 1 PM."
+]
+labels = [1, 0, 1, 0]  # 1 = phishing, 0 = safe
+
+Convert text to features
+vectorizer = TfidfVectorizer()
+X = vectorizer.fit_transform(emails)
+
+Train classifier
+model = LogisticRegression()
+model.fit(X, labels)
+
+Test new email
+test_email = ["Please confirm your password to continue."]
+Xtest = vectorizer.transform(testemail)
+prediction = model.predict(X_test)
+
+if prediction[0] == 1:
+    print("🚨 Phishing Alert: Suspicious email detected!")
+else:
+    print("✅ Safe email.")
