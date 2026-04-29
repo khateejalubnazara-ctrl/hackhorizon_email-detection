@@ -5,9 +5,10 @@ from sklearn.naive_bayes import MultinomialNB
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 
+# Initialize Flask app
 app = Flask(__name__)
 
-# Sample dataset
+# Sample dataset (phishing vs safe emails)
 emails = [
     "Your account will be suspended, click here to verify",
     "Meeting scheduled tomorrow at 10 AM",
@@ -27,32 +28,29 @@ emails = [
     "Submit your report before deadline"
 ]
 
-# Labels: 1 = phishing, 0 = safe
-labels = [1,0,1,0,1,1,1,0,1,0,1,0,1,0,1,0]
+labels = [1,0,1,0,1,1,1,0,1,0,1,0,1,0,1,0]  # 1 = phishing, 0 = safe
 
-# Vectorization
+# Vectorizer with stopwords + bigrams for better feature extraction
 vectorizer = TfidfVectorizer(stop_words='english', ngram_range=(1,2))
 X = vectorizer.fit_transform(emails)
 
-# Train-test split (fixed random_state for consistency)
-X_train, X_test, y_train, y_test = train_test_split(
-    X, labels, test_size=0.3, random_state=42
-)
+# Train-test split
+X_train, X_test, y_train, y_test = train_test_split(X, labels, test_size=0.3, random_state=42)
 
-# Models
+# Initialize models
 lr_model = LogisticRegression(max_iter=1000)
 nb_model = MultinomialNB()
 
-# Training
+# Train models
 lr_model.fit(X_train, y_train)
 nb_model.fit(X_train, y_train)
 
-# Evaluation
+# Evaluate models
 lr_acc = accuracy_score(y_test, lr_model.predict(X_test))
 nb_acc = accuracy_score(y_test, nb_model.predict(X_test))
 
 # Select best model
-if lr_acc > nb_acc:
+if lr_acc >= nb_acc:
     model = lr_model
     best_model_name = "Logistic Regression"
     best_accuracy = lr_acc
@@ -67,28 +65,25 @@ def home():
     confidence = ""
 
     if request.method == "POST":
-        email_text = request.form["email"]
+        email_text = request.form.get("email", "").strip()
 
-        X_input = vectorizer.transform([email_text])
-        prediction = model.predict(X_input)[0]
-        prob = model.predict_proba(X_input)[0][prediction]
+        if email_text:  # Ensure non-empty input
+            X_input = vectorizer.transform([email_text])
+            prediction = model.predict(X_input)
+            prob = model.predict_proba(X_input)[0][prediction[0]]
 
-        confidence = f"{prob * 100:.2f}%"
-
-        if prediction == 1:
-            result = "🚨 Phishing Email Detected!"
+            confidence = f"{prob*100:.2f}%"
+            result = "🚨 Phishing Email Detected!" if prediction[0] == 1 else "✅ Safe Email"
         else:
-            result = "✅ Safe Email"
+            result = "⚠️ Please enter an email text."
 
     return render_template(
         "index.html",
         result=result,
         confidence=confidence,
         model_name=best_model_name,
-        accuracy=f"{best_accuracy * 100:.2f}%"
+        accuracy=f"{best_accuracy*100:.2f}%"
     )
 
 if __name__ == "__main__":
     app.run(debug=True)
-
-        
